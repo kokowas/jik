@@ -150,6 +150,9 @@
     <div id="sentence" style="display: none;"></div>
  </div>
 <script>
+   // This is the SCRIPT section within your generatedPageHtml template literal.
+// Modifications are primarily in read_recognition.onresult for debugging.
+
     const SCRIPT_READERS_DATA = [
     {
         "name": "Default Reader",
@@ -396,14 +399,14 @@
     const sentenceContainerShared = document.getElementById('sentence');
     const readerSelect = document.getElementById('readerSelect');
 
-    let listen_words = [], read_wordSpans = []; 
-    let currentActiveMode = null, currentReaderDataForListen = null; 
+    let listen_words = [], read_wordSpans = [];
+    let currentActiveMode = null, currentReaderDataForListen = null;
 
     SCRIPT_READERS_DATA.forEach((reader, index) => { const option = document.createElement('option'); option.value = index; option.textContent = reader.name; readerSelect.appendChild(option); });
-    
+
     function generateSentenceSpans(readerData) {
         sentenceContainerShared.innerHTML = '';
-        
+
         if (readerData.prerollTitle && readerData.prerollTitle.trim() !== '') {
             const prerollTitleDiv = document.createElement('div');
             prerollTitleDiv.classList.add('preroll-title-display');
@@ -423,7 +426,7 @@
                 const wordSpan = document.createElement('span');
                 wordSpan.classList.add('word-span');
                 wordSpan.textContent = item.text;
-                if (item.time) wordSpan.dataset.time = item.time; 
+                if (item.time) wordSpan.dataset.time = item.time;
                 const feedbackSpan = document.createElement('span');
                 feedbackSpan.classList.add('pronunciation-feedback');
                 wordContainer.appendChild(wordSpan);
@@ -434,10 +437,10 @@
         if(hasPrerollWords) {
             sentenceContainerShared.appendChild(prerollWordsContainer);
         } else {
-            prerollWordsContainer.style.display = 'none'; 
+            prerollWordsContainer.style.display = 'none';
         }
 
-        let lineBuffer = []; 
+        let lineBuffer = [];
         readerData.ayatTimings.forEach(item => {
             if (item.type === 'word') {
                 const wordContainer = document.createElement('div');
@@ -451,7 +454,7 @@
                 wordContainer.appendChild(wordSpan);
                 wordContainer.appendChild(feedbackSpan);
                 lineBuffer.push(wordContainer);
-            } else { 
+            } else {
                 const ayahSpan = document.createElement('span');
                 ayahSpan.textContent = item.text;
                 ayahSpan.classList.add('ayah-number');
@@ -463,7 +466,7 @@
         if (lineBuffer.length > 0) {
             lineBuffer.forEach(wc => sentenceContainerShared.appendChild(wc));
         }
-        
+
         listen_words = Array.from(sentenceContainerShared.querySelectorAll(".word-span[data-time]"));
     }
 
@@ -473,13 +476,12 @@
             span.classList.remove('highlight-active-word', 'processed-word', 'correct-pronunciation', 'incorrect-pronunciation');
             span.style.cursor = 'default';
             span.style.backgroundColor = ''; span.style.color = ''; span.style.transform = ''; span.style.boxShadow = '';
-            // Word span visibility is NOT set here; relies on CSS + .read-mode-active or explicit JS in mode functions
             const feedbackEl = span.parentElement.querySelector('.pronunciation-feedback');
             if (feedbackEl) { feedbackEl.textContent = ''; feedbackEl.className = 'pronunciation-feedback'; }
         });
-        sentenceContainerShared.querySelectorAll('.ayah-number').forEach(an => an.style.visibility = 'visible'); // Ensure Ayah numbers visible
+        sentenceContainerShared.querySelectorAll('.ayah-number').forEach(an => an.style.visibility = 'visible');
         const prerollTitleDisp = sentenceContainerShared.querySelector('.preroll-title-display');
-        if(prerollTitleDisp) prerollTitleDisp.style.visibility = 'hidden'; // Default preroll title to hidden, mode init will show
+        if(prerollTitleDisp) prerollTitleDisp.style.visibility = 'hidden';
     }
 
     // --- LISTEN MODE ---
@@ -489,24 +491,24 @@
     function listen_resetHighlights() { listen_words.forEach(word => {word.classList.remove("highlight-active-word", "processed-word"); word.style.visibility = 'visible';}); listen_audioWasEnded = false; }
     function listen_toggleAudio() { if (!currentReaderDataForListen) return; if (listen_audioWasEnded) { listen_resetHighlights(); listen_audioPlayer.currentTime = 0; listen_playPauseButton.classList.add('btn-pulsing'); } if (listen_audioPlayer.paused || listen_audioPlayer.ended) { if (listen_audioPlayer.ended) { listen_audioPlayer.currentTime = 0; listen_resetHighlights(); } listen_audioPlayer.play().catch(e => console.error("Audio play error:", e)); listen_isPaused = false; listen_playPauseButton.textContent = "⏸️"; listen_playPauseButton.classList.remove('btn-pulsing'); } else { listen_audioPlayer.pause(); listen_isPaused = true; listen_playPauseButton.textContent = "▶️"; if (!listen_audioWasEnded) listen_playPauseButton.classList.add('btn-pulsing'); } }
     function listen_highlightWords() { if (listen_isPaused || listen_audioWasEnded || !currentReaderDataForListen) return; const currentTime = listen_audioPlayer.currentTime; listen_words.forEach((word, index) => { let wordTime = parseFloat(word.dataset.time); let endTime = Infinity; for (let i = index + 1; i < listen_words.length; i++) { if (listen_words[i].hasAttribute('data-time')) { endTime = parseFloat(listen_words[i].dataset.time); break; } } if (endTime === Infinity) endTime = listen_audioPlayer.duration && !isNaN(listen_audioPlayer.duration) ? listen_audioPlayer.duration : wordTime + 1.0; if (currentTime >= wordTime && currentTime < endTime) { word.classList.add("highlight-active-word"); word.classList.remove("processed-word"); } else { word.classList.remove("highlight-active-word"); if (currentTime >= endTime && wordTime < currentTime) { word.classList.add("processed-word"); } else if (currentTime < wordTime) { word.classList.remove("processed-word"); } } }); if (!listen_audioPlayer.ended && listen_audioPlayer.currentTime >= listen_audioPlayer.duration - 0.1 && listen_audioPlayer.duration > 0) { listen_playPauseButton.textContent = "🔄"; listen_audioWasEnded = true; listen_words.forEach(w => { if(w.hasAttribute('data-time') && parseFloat(w.dataset.time) <= listen_audioPlayer.currentTime) { w.classList.add('processed-word'); w.classList.remove('highlight-active-word'); } }); listen_playPauseButton.classList.add('btn-pulsing'); } }
-    function setupListenModeForReader(readerIndex) { currentReaderDataForListen = SCRIPT_READERS_DATA[readerIndex]; if (!currentReaderDataForListen) return; listen_audioPlayer.src = currentReaderDataForListen.audioFile; listen_audioPlayer.pause(); listen_audioPlayer.currentTime = 0; listen_isPaused = true; listen_audioWasEnded = false; listen_playPauseButton.textContent = "▶️"; listen_playPauseButton.classList.add('btn-pulsing'); generateSentenceSpans(currentReaderDataForListen); resetAllWordStyles(); 
+    function setupListenModeForReader(readerIndex) { currentReaderDataForListen = SCRIPT_READERS_DATA[readerIndex]; if (!currentReaderDataForListen) return; listen_audioPlayer.src = currentReaderDataForListen.audioFile; listen_audioPlayer.pause(); listen_audioPlayer.currentTime = 0; listen_isPaused = true; listen_audioWasEnded = false; listen_playPauseButton.textContent = "▶️"; listen_playPauseButton.classList.add('btn-pulsing'); generateSentenceSpans(currentReaderDataForListen); resetAllWordStyles();
         const allTextSpans = sentenceContainerShared.querySelectorAll('.word-container > .word-span, .ayah-number');
         allTextSpans.forEach(span => { span.style.visibility = 'visible'; if (!span.classList.contains('ayah-number')) span.style.cursor = 'pointer';});
         const prerollTitleDisp = sentenceContainerShared.querySelector('.preroll-title-display');
         if(prerollTitleDisp) prerollTitleDisp.style.visibility = 'visible';
-        listen_words.forEach(word => { word.onclick = function() { if (listen_audioWasEnded) { listen_resetHighlights(); listen_audioWasEnded = false; listen_playPauseButton.classList.add('btn-pulsing');} listen_audioPlayer.currentTime = parseFloat(this.dataset.time); listen_highlightWords(); if (listen_audioPlayer.paused || listen_audioPlayer.ended) { listen_audioPlayer.play().catch(e => console.error("Audio play error:", e)); listen_isPaused = false; listen_playPauseButton.textContent = "⏸️"; listen_playPauseButton.classList.remove('btn-pulsing'); } }; }); 
+        listen_words.forEach(word => { word.onclick = function() { if (listen_audioWasEnded) { listen_resetHighlights(); listen_audioWasEnded = false; listen_playPauseButton.classList.add('btn-pulsing');} listen_audioPlayer.currentTime = parseFloat(this.dataset.time); listen_highlightWords(); if (listen_audioPlayer.paused || listen_audioPlayer.ended) { listen_audioPlayer.play().catch(e => console.error("Audio play error:", e)); listen_isPaused = false; listen_playPauseButton.textContent = "⏸️"; listen_playPauseButton.classList.remove('btn-pulsing'); } }; });
     }
-    function initListenMode() { 
-        listenModeUI.style.display = 'block'; sentenceContainerShared.style.display = 'block'; 
-        sentenceContainerShared.classList.remove('read-mode-active'); 
-        const readerSelectGroup = document.querySelector('#listenModeUI .reader-select-group'); 
-        if (SCRIPT_READERS_DATA.length <= 1) { if (readerSelectGroup) readerSelectGroup.style.display = 'none'; if (SCRIPT_READERS_DATA.length === 1) setupListenModeForReader(0); else sentenceContainerShared.innerHTML = "<p>No reader data.</p>"; } 
-        else { if (readerSelectGroup) readerSelectGroup.style.display = 'block'; readerSelect.value = "0"; setupListenModeForReader(0); } 
-        listen_playPauseButton.onclick = listen_toggleAudio; listen_audioPlayer.ontimeupdate = listen_highlightWords; 
-        listen_audioPlayer.onended = () => { listen_playPauseButton.textContent = "🔄"; listen_isPaused = true; listen_audioWasEnded = true; listen_words.forEach(w => { if (w.classList.contains('highlight-active-word')) {w.classList.remove('highlight-active-word'); w.classList.add('processed-word');} else if (w.hasAttribute('data-time') && parseFloat(w.dataset.time) <= listen_audioPlayer.currentTime) {w.classList.add('processed-word');}}); listen_playPauseButton.classList.add('btn-pulsing'); }; 
-        listen_audioPlayer.onplay = () => { listen_isPaused = false; listen_highlightWords(); listen_playPauseButton.classList.remove('btn-pulsing'); }; 
+    function initListenMode() {
+        listenModeUI.style.display = 'block'; sentenceContainerShared.style.display = 'block';
+        sentenceContainerShared.classList.remove('read-mode-active');
+        const readerSelectGroup = document.querySelector('#listenModeUI .reader-select-group');
+        if (SCRIPT_READERS_DATA.length <= 1) { if (readerSelectGroup) readerSelectGroup.style.display = 'none'; if (SCRIPT_READERS_DATA.length === 1) setupListenModeForReader(0); else sentenceContainerShared.innerHTML = "<p>No reader data.</p>"; }
+        else { if (readerSelectGroup) readerSelectGroup.style.display = 'block'; readerSelect.value = "0"; setupListenModeForReader(0); }
+        listen_playPauseButton.onclick = listen_toggleAudio; listen_audioPlayer.ontimeupdate = listen_highlightWords;
+        listen_audioPlayer.onended = () => { listen_playPauseButton.textContent = "🔄"; listen_isPaused = true; listen_audioWasEnded = true; listen_words.forEach(w => { if (w.classList.contains('highlight-active-word')) {w.classList.remove('highlight-active-word'); w.classList.add('processed-word');} else if (w.hasAttribute('data-time') && parseFloat(w.dataset.time) <= listen_audioPlayer.currentTime) {w.classList.add('processed-word');}}); listen_playPauseButton.classList.add('btn-pulsing'); };
+        listen_audioPlayer.onplay = () => { listen_isPaused = false; listen_highlightWords(); listen_playPauseButton.classList.remove('btn-pulsing'); };
         listen_audioPlayer.onpause = () => { if(!listen_audioWasEnded && listen_isPaused) listen_playPauseButton.classList.add('btn-pulsing'); };
-        listen_audioPlayer.onseeked = listen_highlightWords; readerSelect.onchange = (e) => setupListenModeForReader(parseInt(e.target.value)); 
+        listen_audioPlayer.onseeked = listen_highlightWords; readerSelect.onchange = (e) => setupListenModeForReader(parseInt(e.target.value));
     }
     function deactivateListenMode() { if (listen_audioPlayer && !listen_audioPlayer.paused) listen_audioPlayer.pause(); listen_playPauseButton.textContent = "▶️"; listen_playPauseButton.classList.remove('btn-pulsing'); listenModeUI.style.display = 'none'; listen_playPauseButton.onclick = null; listen_audioPlayer.ontimeupdate = null; listen_audioPlayer.onended = null; listen_audioPlayer.onplay = null; listen_audioPlayer.onseeked = null; listen_audioPlayer.onpause = null; readerSelect.onchange = null; if (Array.isArray(listen_words)) listen_words.forEach(word => {word.onclick = null; word.style.visibility='hidden';}); const prerollTitleDisp = sentenceContainerShared.querySelector('.preroll-title-display'); if(prerollTitleDisp) prerollTitleDisp.style.visibility = 'hidden'; currentReaderDataForListen = null; }
 
@@ -521,32 +523,61 @@
     function triggerConfettiEffect() { const confettiCount = 100; const confettiColors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107', '#FF9800']; for (let i = 0; i < confettiCount; i++) { const confetti = document.createElement('div'); confetti.classList.add('confetti'); confetti.style.left = Math.random() * 100 + 'vw'; confetti.style.backgroundColor = confettiColors[Math.floor(Math.random() * confettiColors.length)]; confetti.style.animationDelay = Math.random() * 0.5 + 's'; confetti.style.width = (Math.random() * 8 + 5) + 'px'; confetti.style.height = confetti.style.width; confetti.style.transform = `translateY(-10vh) rotateZ(${Math.random() * 360}deg)`; document.body.appendChild(confetti); setTimeout(() => { if (confetti.parentNode) { confetti.parentNode.removeChild(confetti); } }, 3500); } }
 
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognitionAPI) { 
+    if (SpeechRecognitionAPI) {
         read_recognition = new SpeechRecognitionAPI(); read_recognition.continuous = true; read_recognition.interimResults = true; read_recognition.lang = 'ar-SA';
         read_recognition.onstart = () => { read_isRecognizing = true; read_accumulatedFinalTranscript = ""; read_speechButton.textContent = "🔴 جاري القراءة..."; read_speechButton.classList.add('listening'); read_speechButton.classList.remove('btn-pulsing'); read_speechStatus.textContent = "اقرأ الآن..."; if (read_restartTimeout) clearTimeout(read_restartTimeout); if (read_silenceTimeout) clearTimeout(read_silenceTimeout); read_restartTimeout = null; read_silenceTimeout = null; };
-        read_recognition.onend = () => { read_isRecognizing = false; if (read_restartTimeout) clearTimeout(read_restartTimeout); if (read_silenceTimeout) clearTimeout(read_silenceTimeout); read_restartTimeout = null; read_silenceTimeout = null; if (read_shouldRestart && read_currentWordIndex < read_wordSpans.length) { read_restartTimeout = setTimeout(() => { if (!read_isRecognizing && read_shouldRestart && read_currentWordIndex < read_wordSpans.length) { try { read_recognition.start(); } catch (e) { read_shouldRestart = false; read_updateUIForStopped(); } } }, 100); } else { read_updateUIForStopped(); } };
+        read_recognition.onend = () => { read_isRecognizing = false; if (read_restartTimeout) clearTimeout(read_restartTimeout); if (read_silenceTimeout) clearTimeout(read_silenceTimeout); read_restartTimeout = null; read_silenceTimeout = null; if (read_shouldRestart && read_currentWordIndex < read_wordSpans.length) { read_restartTimeout = setTimeout(() => { if (!read_isRecognizing && read_shouldRestart && read_currentWordIndex < read_wordSpans.length) { try { read_recognition.start(); } catch (e) { console.error("Recognition restart error:", e); read_shouldRestart = false; read_updateUIForStopped(); } } }, 100); } else { read_updateUIForStopped(); } };
         function read_updateUIForStopped() { read_speechButton.textContent = "🎤 ابدأ القراءة"; read_speechButton.classList.remove('listening'); if (read_currentWordIndex < read_wordSpans.length) { read_speechButton.classList.add('btn-pulsing'); } else { read_speechButton.classList.remove('btn-pulsing'); } if (read_currentWordIndex < read_wordSpans.length && read_currentWordIndex > 0) { read_speechStatus.textContent = "توقفت القراءة. اضغط لمتابعة."; } else if (read_currentWordIndex === 0) { read_speechStatus.textContent = 'اضغط "ابدأ القراءة" واقرأ'; } else if (read_currentWordIndex >= read_wordSpans.length) { /* Message set by onresult */ } }
-        read_recognition.onerror = (event) => { let errorMsg = "خطأ في التعرف: " + event.error; if (event.error === 'aborted' && read_shouldRestart) return; if (event.error === 'no-speech' && read_shouldRestart && read_currentWordIndex < read_wordSpans.length) { return; } if (!read_shouldRestart || (event.error !== 'no-speech' && event.error !== 'aborted')) { read_speechStatus.textContent = errorMsg; read_isRecognizing = false; read_updateUIForStopped(); } };
-        read_recognition.onresult = (event) => { 
-            if (read_silenceTimeout) clearTimeout(read_silenceTimeout); read_silenceTimeout = null; 
-            let interimTranscript = ''; 
-            for (let i = event.resultIndex; i < event.results.length; ++i) { const transcriptPart = event.results[i][0].transcript; if (event.results[i].isFinal) read_accumulatedFinalTranscript += transcriptPart + " "; else interimTranscript += transcriptPart; } 
-            if (interimTranscript && read_isRecognizing) { read_speechStatus.textContent = "لحظة... " + interimTranscript; read_silenceTimeout = setTimeout(() => { if (read_isRecognizing && read_shouldRestart && read_currentWordIndex < read_wordSpans.length) read_speechStatus.textContent = "في انتظار الكلمة التالية..."; }, 3000); } 
+        read_recognition.onerror = (event) => { console.error("Speech Recognition Error:", event.error, event.message); let errorMsg = "خطأ في التعرف: " + event.error; if (event.error === 'aborted' && read_shouldRestart) return; if (event.error === 'no-speech' && read_shouldRestart && read_currentWordIndex < read_wordSpans.length) { read_speechStatus.textContent = "لم يتم سماع أي كلام. حاول مرة أخرى."; return; } if (!read_shouldRestart || (event.error !== 'no-speech' && event.error !== 'aborted')) { read_speechStatus.textContent = errorMsg; read_isRecognizing = false; read_shouldRestart = false; read_updateUIForStopped(); } };
+        
+        read_recognition.onresult = (event) => {
+            if (read_silenceTimeout) clearTimeout(read_silenceTimeout); read_silenceTimeout = null;
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                const transcriptPart = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    read_accumulatedFinalTranscript += transcriptPart + " ";
+                } else {
+                    interimTranscript += transcriptPart;
+                }
+            }
             
-            if (read_accumulatedFinalTranscript && read_currentWordIndex < read_wordSpans.length && read_isRecognizing) { 
-                const wordsToProcess = read_accumulatedFinalTranscript.trim().split(" ").filter(w => w.length > 0); 
-                read_accumulatedFinalTranscript = ""; 
-                for (let spokenWord of wordsToProcess) { 
-                    if (!read_isRecognizing || read_currentWordIndex >= read_wordSpans.length) break; 
-                    const normalizedSpokenWord = read_normalizeArabic(spokenWord); 
-                    if (!normalizedSpokenWord) continue; 
-                    
-                    const targetWordSpan = read_wordSpans[read_currentWordIndex];
-                    if (!targetWordSpan || !targetWordSpan.parentElement || !targetWordSpan.parentElement.classList.contains('word-container')) continue;
-                    const feedbackEl = targetWordSpan.parentElement.querySelector('.pronunciation-feedback');
-                    const targetWordText = targetWordSpan.dataset.word;
+            if (interimTranscript && read_isRecognizing) {
+                read_speechStatus.textContent = "لحظة... " + interimTranscript;
+                read_silenceTimeout = setTimeout(() => {
+                    if (read_isRecognizing && read_shouldRestart && read_currentWordIndex < read_wordSpans.length) {
+                        read_speechStatus.textContent = "في انتظار الكلمة التالية...";
+                    }
+                }, 3000);
+            }
+            
+            // console.log("DEBUG: Interim: ", interimTranscript, "Final accumulated:", read_accumulatedFinalTranscript); // Basic log
 
-                    if (targetWordText && normalizedSpokenWord === targetWordText) { // CORRECT
+            if (read_accumulatedFinalTranscript.trim() && read_currentWordIndex < read_wordSpans.length && read_isRecognizing) {
+                const wordsToProcess = read_accumulatedFinalTranscript.trim().split(/s+/).filter(w => w.length > 0);
+                read_accumulatedFinalTranscript = ""; // Clear after getting words to process for this batch
+
+                console.log("DEBUG: Processing final words:", wordsToProcess);
+
+                for (let spokenWord of wordsToProcess) {
+                    if (!read_isRecognizing || read_currentWordIndex >= read_wordSpans.length) break;
+                    
+                    const normalizedSpokenWord = read_normalizeArabic(spokenWord);
+                    if (!normalizedSpokenWord) continue;
+
+                    const targetWordSpan = read_wordSpans[read_currentWordIndex];
+                    if (!targetWordSpan || !targetWordSpan.parentElement || !targetWordSpan.parentElement.classList.contains('word-container')) {
+                        console.warn("DEBUG: Invalid targetWordSpan or parent at index:", read_currentWordIndex, targetWordSpan);
+                        continue;
+                    }
+                    const feedbackEl = targetWordSpan.parentElement.querySelector('.pronunciation-feedback');
+                    const targetWordTextOriginal = targetWordSpan.textContent;
+                    const targetWordTextNormalized = targetWordSpan.dataset.word;
+
+                    console.log(`DEBUG: Index ${read_currentWordIndex}: Comparing Spoken (norm): "${normalizedSpokenWord}" WITH Target (norm): "${targetWordTextNormalized}" (Original: "${targetWordTextOriginal}")`);
+
+                    if (targetWordTextNormalized && normalizedSpokenWord === targetWordTextNormalized) { // CORRECT
+                        console.log("DEBUG: MATCHED!");
                         if (feedbackEl) { feedbackEl.textContent = '✔'; feedbackEl.className = 'pronunciation-feedback correct'; }
                         targetWordSpan.classList.remove('highlight-active-word', 'incorrect-pronunciation');
                         targetWordSpan.classList.add('processed-word', 'correct-pronunciation');
@@ -558,151 +589,152 @@
                                 nextWordSpan.classList.add('highlight-active-word');
                                 const nextFeedbackEl = nextWordSpan.parentElement.querySelector('.pronunciation-feedback');
                                 if (nextFeedbackEl) { nextFeedbackEl.textContent = ''; nextFeedbackEl.className = 'pronunciation-feedback';}
+                            } else {
+                                console.warn("DEBUG: Next word span is null at index:", read_currentWordIndex);
                             }
                         }
-                    } else if (targetWordText) { // INCORRECT
+                    } else if (targetWordTextNormalized) { // INCORRECT
+                        console.log("DEBUG: NO MATCH.");
                         if (feedbackEl) { feedbackEl.textContent = '❌'; feedbackEl.className = 'pronunciation-feedback incorrect';}
                         targetWordSpan.classList.remove('correct-pronunciation', 'processed-word');
                         targetWordSpan.classList.add('incorrect-pronunciation', 'highlight-active-word');
-                        read_speechStatus.textContent = `حاول مرة أخرى: "${targetWordSpan.textContent}"`;
+                        read_speechStatus.textContent = `حاول مرة أخرى: "${targetWordTextOriginal}"`;
                         break; 
+                    } else {
+                         console.warn(`DEBUG: Target word text (normalized) is MISSING for span: ${targetWordTextOriginal} at index ${read_currentWordIndex}`);
                     }
-                } 
-                if (read_currentWordIndex >= read_wordSpans.length) { 
-                    read_speechStatus.textContent = "🎉 أحسنت! لقد أكملت السورة. 🎉"; triggerConfettiEffect(); read_shouldRestart = false; 
-                    if (read_isRecognizing) read_recognition.stop(); else read_updateUIForStopped(); 
-                    read_speechButton.classList.remove('btn-pulsing'); 
-                } 
-            } 
+                }
+                
+                if (read_currentWordIndex >= read_wordSpans.length) {
+                    read_speechStatus.textContent = "🎉 أحسنت! لقد أكملت السورة. 🎉"; triggerConfettiEffect(); read_shouldRestart = false;
+                    if (read_isRecognizing) read_recognition.stop(); else read_updateUIForStopped();
+                    read_speechButton.classList.remove('btn-pulsing');
+                }
+            }
         };
     }
-    
-    function read_toggleSpeechRecognition() { 
-        if (!SpeechRecognitionAPI) return; 
-        if (read_isRecognizing || read_shouldRestart) { 
-            read_shouldRestart = false; if (read_restartTimeout) clearTimeout(read_restartTimeout); if (read_silenceTimeout) clearTimeout(read_silenceTimeout); read_restartTimeout = null; read_silenceTimeout = null; 
-            if (read_isRecognizing) read_recognition.stop(); else read_updateUIForStopped(); 
-        } else { 
-            if (read_currentWordIndex >= read_wordSpans.length) read_resetActivity(); 
-            read_shouldRestart = true; 
+
+    function read_toggleSpeechRecognition() {
+        if (!SpeechRecognitionAPI) return;
+        if (read_isRecognizing) { // If currently recognizing, stop it
+            read_shouldRestart = false; 
+            read_recognition.stop();
+        } else { // Not recognizing, so start it
+            if (read_currentWordIndex >= read_wordSpans.length) read_resetActivity();
+            read_shouldRestart = true;
             read_speechButton.classList.remove('btn-pulsing');
-            try { 
-                if (read_currentWordIndex < read_wordSpans.length) { 
-                    const currentTargetSpan = read_wordSpans[read_currentWordIndex]; 
-                    if (currentTargetSpan && !currentTargetSpan.classList.contains('processed-word') && !currentTargetSpan.classList.contains('highlight-active-word')) { 
-                        currentTargetSpan.classList.add('highlight-active-word'); 
+            try {
+                if (read_currentWordIndex < read_wordSpans.length) {
+                    const currentTargetSpan = read_wordSpans[read_currentWordIndex];
+                    if (currentTargetSpan && !currentTargetSpan.classList.contains('processed-word') && !currentTargetSpan.classList.contains('highlight-active-word')) {
+                        currentTargetSpan.classList.add('highlight-active-word');
                         const feedbackEl = currentTargetSpan.parentElement.querySelector('.pronunciation-feedback');
                         if (feedbackEl) { feedbackEl.textContent = ''; feedbackEl.className = 'pronunciation-feedback';}
-                    } 
-                } 
-                read_recognition.start(); 
-            } catch (e) { read_shouldRestart = false; read_isRecognizing = false; read_updateUIForStopped(); } 
-        } 
+                    }
+                }
+                read_recognition.start();
+            } catch (e) { console.error("Recognition start error:", e); read_shouldRestart = false; read_isRecognizing = false; read_updateUIForStopped(); }
+        }
     }
-    function read_resetActivity() { 
-        read_currentWordIndex = 0; read_accumulatedFinalTranscript = ""; read_shouldRestart = false; 
-        if (read_restartTimeout) clearTimeout(read_restartTimeout); if (read_silenceTimeout) clearTimeout(read_silenceTimeout); read_restartTimeout = null; read_silenceTimeout = null; 
-        
-        resetAllWordStyles(); 
-        // resetAllWordStyles from first code:
-        // - Clears classes from word spans.
-        // - Does NOT set word spans' visibility via JS style.
-        // - Sets ayah numbers to visible via JS style.
-        // - Sets preroll title to hidden via JS style.
+    function read_resetActivity() {
+        read_currentWordIndex = 0; read_accumulatedFinalTranscript = ""; read_shouldRestart = false;
+        if (read_restartTimeout) clearTimeout(read_restartTimeout); if (read_silenceTimeout) clearTimeout(read_silenceTimeout); read_restartTimeout = null; read_silenceTimeout = null;
 
-        // MODIFICATION START: Explicitly make word spans visible, similar to second code's approach.
-        // read_wordSpans is populated in initReadMode before this function is called.
+        resetAllWordStyles();
+
         if (Array.isArray(read_wordSpans)) {
             read_wordSpans.forEach(span => {
-                if (span && typeof span.style !== 'undefined') { // Ensure span and style object exist
+                if (span && typeof span.style !== 'undefined') {
                      span.style.visibility = 'visible';
                 }
             });
         }
-        // MODIFICATION END
 
         const prerollTitleDisp = sentenceContainerShared.querySelector('.preroll-title-display');
-        if(prerollTitleDisp) prerollTitleDisp.style.visibility = 'visible'; // Make title visible in read mode (already in first code)
+        if(prerollTitleDisp) prerollTitleDisp.style.visibility = 'visible';
         
-        // Ayah numbers are already made visible by resetAllWordStyles in the first code.
+        // Ensure Ayah numbers are visible (resetAllWordStyles should handle this, but for clarity)
+        sentenceContainerShared.querySelectorAll('.ayah-number').forEach(an => an.style.visibility = 'visible');
 
-        if (read_wordSpans.length > 0) { 
-            const firstWord = read_wordSpans[0]; 
-            if (firstWord) { 
-                firstWord.classList.add('highlight-active-word'); 
+
+        if (read_wordSpans.length > 0) {
+            const firstWord = read_wordSpans[0];
+            if (firstWord) {
+                firstWord.classList.add('highlight-active-word');
                 const feedbackEl = firstWord.parentElement.querySelector('.pronunciation-feedback');
                 if (feedbackEl) { feedbackEl.textContent = ''; feedbackEl.className = 'pronunciation-feedback';}
-            } 
-        } 
-        read_speechStatus.textContent = 'اضغط "ابدأ القراءة" واقرأ'; 
-        if (read_isRecognizing) read_recognition.stop(); else read_updateUIForStopped();
+            }
+        }
+        read_speechStatus.textContent = 'اضغط "ابدأ القراءة" واقرأ';
+        if (read_isRecognizing) { read_recognition.stop(); } // Stop if it was somehow stuck
+        read_updateUIForStopped(); // This will set button text and pulsing correctly
     }
-    function initReadMode() { 
-        readModeUI.style.display = 'block'; 
-        sentenceContainerShared.style.display = 'block'; 
-        sentenceContainerShared.classList.add('read-mode-active'); 
+    function initReadMode() {
+        readModeUI.style.display = 'block';
+        sentenceContainerShared.style.display = 'block';
+        sentenceContainerShared.classList.add('read-mode-active');
         read_speechButton.classList.add('btn-pulsing');
-        
+
         if (SCRIPT_READERS_DATA.length > 0) {
-            generateSentenceSpans(SCRIPT_READERS_DATA[0]); 
-            read_wordSpans = Array.from(sentenceContainerShared.querySelectorAll('.word-container > .word-span')); 
-        } else { 
-            sentenceContainerShared.innerHTML = "<p>No text configured.</p>"; 
-            read_wordSpans = []; 
-        } 
+            generateSentenceSpans(SCRIPT_READERS_DATA[0]); // Assuming first reader's text for read mode
+            read_wordSpans = Array.from(sentenceContainerShared.querySelectorAll('.word-container > .word-span'));
+        } else {
+            sentenceContainerShared.innerHTML = "<p>No text configured.</p>";
+            read_wordSpans = [];
+        }
 
-        if (!SpeechRecognitionAPI) { read_speechButton.disabled = true; read_speechButton.textContent = "غير مدعوم"; read_resetButton.disabled = true; read_speechStatus.textContent = "التعرف الصوتي غير مدعوم."; return; } 
-        else { read_speechButton.disabled = false; read_resetButton.disabled = false; } 
-        
-        read_wordSpans.forEach(span => { 
-            span.dataset.word = read_normalizeArabic(span.textContent); 
-            span.style.cursor = 'default'; 
-        }); 
-        read_resetActivity(); 
-        read_speechButton.onclick = read_toggleSpeechRecognition; 
-        read_resetButton.onclick = read_resetActivity; 
+        if (!SpeechRecognitionAPI) { read_speechButton.disabled = true; read_speechButton.textContent = "غير مدعوم"; read_resetButton.disabled = true; read_speechStatus.textContent = "التعرف الصوتي غير مدعوم."; return; }
+        else { read_speechButton.disabled = false; read_resetButton.disabled = false; }
+
+        read_wordSpans.forEach(span => {
+            span.dataset.word = read_normalizeArabic(span.textContent);
+            span.style.cursor = 'default';
+        });
+        read_resetActivity();
+        read_speechButton.onclick = read_toggleSpeechRecognition;
+        read_resetButton.onclick = read_resetActivity;
     }
-    function deactivateReadMode() { 
-        if (SpeechRecognitionAPI && read_recognition && read_isRecognizing) { read_shouldRestart = false; read_recognition.stop(); } 
-        if (read_restartTimeout) clearTimeout(read_restartTimeout); if (read_silenceTimeout) clearTimeout(read_silenceTimeout); read_restartTimeout = null; read_silenceTimeout = null; 
-        readModeUI.style.display = 'none'; 
+    function deactivateReadMode() {
+        if (SpeechRecognitionAPI && read_recognition && read_isRecognizing) { read_shouldRestart = false; read_recognition.stop(); }
+        if (read_restartTimeout) clearTimeout(read_restartTimeout); if (read_silenceTimeout) clearTimeout(read_silenceTimeout); read_restartTimeout = null; read_silenceTimeout = null;
+        readModeUI.style.display = 'none';
         sentenceContainerShared.classList.remove('read-mode-active');
-        const allTextSpans = sentenceContainerShared.querySelectorAll('.word-container > .word-span, .preroll-title-display'); 
-        allTextSpans.forEach(span => span.style.visibility = 'hidden');
-        // Ayah numbers' visibility is primarily controlled by CSS (.ayah-number { visibility: visible !important; })
-        // and resetAllWordStyles which ensures they are visible.
-        // So, they don't need to be explicitly hidden here unless a different behavior is desired when read mode deactivates.
-        // For now, they will remain visible as per their CSS and resetAllWordStyles logic.
+        
+        // Hide all elements that were specific to the mode
+        const elementsToHide = sentenceContainerShared.querySelectorAll('.word-container > .word-span, .preroll-title-display, .ayah-number');
+        elementsToHide.forEach(el => el.style.visibility = 'hidden');
 
-        read_speechButton.onclick = null; read_resetButton.onclick = null; 
-        read_speechButton.classList.remove('btn-pulsing'); 
+        read_speechButton.onclick = null; read_resetButton.onclick = null;
+        read_speechButton.classList.remove('btn-pulsing');
+        read_speechStatus.textContent = 'اضغط "ابدأ القراءة" واقرأ'; // Reset status
     }
 
-    function switchToMode(mode) { 
-        if (currentActiveMode === 'listen') deactivateListenMode(); 
-        else if (currentActiveMode === 'read') deactivateReadMode(); 
-        
-        btnSelectListen.classList.remove('active'); 
-        btnSelectRead.classList.remove('active'); 
-        
-        if (mode === 'listen') { 
-            initListenMode(); btnSelectListen.classList.add('active'); currentActiveMode = 'listen'; 
-        } else if (mode === 'read') { 
-            initReadMode(); btnSelectRead.classList.add('active'); currentActiveMode = 'read'; 
-        } else { 
-            listenModeUI.style.display = 'none'; readModeUI.style.display = 'none'; 
+    function switchToMode(mode) {
+        if (currentActiveMode === 'listen') deactivateListenMode();
+        else if (currentActiveMode === 'read') deactivateReadMode();
+
+        btnSelectListen.classList.remove('active');
+        btnSelectRead.classList.remove('active');
+
+        if (mode === 'listen') {
+            initListenMode(); btnSelectListen.classList.add('active'); currentActiveMode = 'listen';
+        } else if (mode === 'read') {
+            initReadMode(); btnSelectRead.classList.add('active'); currentActiveMode = 'read';
+        } else {
+            listenModeUI.style.display = 'none'; readModeUI.style.display = 'none';
             if (sentenceContainerShared) {
                 sentenceContainerShared.style.display = 'none';
                 sentenceContainerShared.classList.remove('read-mode-active');
+                sentenceContainerShared.innerHTML = ''; // Clear content when no mode is active
             }
-            currentActiveMode = null; 
-        } 
+            currentActiveMode = null;
+        }
     }
     btnSelectListen.addEventListener('click', () => switchToMode('listen'));
     btnSelectRead.addEventListener('click', () => switchToMode('read'));
-    
+
     if (SCRIPT_READERS_DATA && SCRIPT_READERS_DATA.length > 0) {
-        switchToMode('listen'); 
+        switchToMode('listen'); // Default to listen mode
     } else {
         sentenceContainerShared.innerHTML = '<p style="text-align:center; color:white;">No reader data available to display.</p>';
         sentenceContainerShared.style.display = 'block';
